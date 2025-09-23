@@ -8,12 +8,12 @@
 #include <math.h>
 
 
-// ??nh ngh?a ch‚n k?t n?i
-#define TRIG_PIN PE0        // Ch‚n Trigger k?t n?i v?i PE0
+// ??nh ngh?a ch√¢n k?t n?i
+#define TRIG_PIN PE0        // Ch√¢n Trigger k?t n?i v?i PE0
 #define TRIG_PORT PORTE
 #define TRIG_DDR DDRE
 
-#define ECHO_PIN PE4        // Ch‚n Echo k?t n?i v?i PE4 (INT4)
+#define ECHO_PIN PE4        // Ch√¢n Echo k?t n?i v?i PE4 (INT4)
 
 // ??nh ngh?a LCD 20x4
 #define LCD_RS_PIN PB0      // RS pin
@@ -25,12 +25,12 @@
 #define LCD_DATA_PORT PORTC // D4-D7 pins (PC4-PC7)
 #define LCD_DATA_DDR DDRC
 
-// Bi?n to‡n c?c
+// Bi?n to√†n c?c
 volatile uint16_t timer_value = 0;
 volatile uint8_t measurement_complete = 0;
 volatile uint8_t echo_state = 0;  // 0: waiting for rising edge, 1: waiting for falling edge
 
-// Khai b·o h‡m tr??c
+// Khai b√°o h√†m tr??c
 void lcd_init(void);
 void lcd_command(uint8_t cmd);
 void lcd_data(uint8_t data);
@@ -52,24 +52,24 @@ void timer1_init() {
 
 // Kh?i t?o External Interrupt INT4
 void interrupt_init() {
-	// C?u hÏnh PE4 l‡ input
+	// C?u h√¨nh PE4 l√† input
 	DDRE &= ~(1 << PE4);
 	
-	// C?u hÏnh INT4 ?? kÌch ho?t trÍn c? c?nh lÍn v‡ c?nh xu?ng
+	// C?u h√¨nh INT4 ?? k√≠ch ho?t tr√™n c? c?nh l√™n v√† c?nh xu?ng
 	EICRB |= (1 << ISC40);  // Any logical change on INT4
 	EICRB &= ~(1 << ISC41);
 	
-	// Cho phÈp INT4
+	// Cho ph√©p INT4
 	EIMSK |= (1 << INT4);
 	
-	// Cho phÈp global interrupt
+	// Cho ph√©p global interrupt
 	sei();
 }
 
 // Interrupt Service Routine cho INT4
 ISR(INT4_vect) {
 	if (echo_state == 0) {
-		// C?nh lÍn - b?t ??u ??m
+		// C?nh l√™n - b?t ??u ??m
 		TCNT1 = 0;
 		timer1_init();
 		echo_state = 1;
@@ -84,14 +84,14 @@ ISR(INT4_vect) {
 
 // Kh?i t?o LCD 20x4
 void lcd_init() {
-	// C?u hÏnh ch‚n ?i?u khi?n
+	// C?u h√¨nh ch√¢n ?i?u khi?n
 	LCD_CTRL_DDR |= (1 << LCD_RS_PIN) | (1 << LCD_RW_PIN) | (1 << LCD_EN_PIN);
-	// C?u hÏnh ch‚n data D4-D7 (PC4-PC7)
+	// C?u h√¨nh ch√¢n data D4-D7 (PC4-PC7)
 	LCD_DATA_DDR |= 0xF0;  // Set PC4-PC7 as output
 	
 	_delay_ms(50);  // Ch? LCD kh?i t?o
 	
-	// KÈo RW xu?ng LOW (ch? ?? write)
+	// K√©o RW xu?ng LOW (ch? ?? write)
 	LCD_CTRL_PORT &= ~(1 << LCD_RW_PIN);
 	
 	// Reset sequence
@@ -137,7 +137,7 @@ void lcd_enable_pulse() {
 }
 
 void lcd_command(uint8_t cmd) {
-	// KÈo RS xu?ng LOW (command mode)
+	// K√©o RS xu?ng LOW (command mode)
 	LCD_CTRL_PORT &= ~(1 << LCD_RS_PIN);
 	
 	// Send upper nibble (D7-D4)
@@ -152,7 +152,7 @@ void lcd_command(uint8_t cmd) {
 }
 
 void lcd_data(uint8_t data) {
-	// KÈo RS lÍn HIGH (data mode)
+	// K√©o RS l√™n HIGH (data mode)
 	LCD_CTRL_PORT |= (1 << LCD_RS_PIN);
 	
 	// Send upper nibble (D7-D4)
@@ -186,27 +186,27 @@ void lcd_goto(uint8_t row, uint8_t col) {
 
 // G?i xung trigger
 void send_trigger() {
-	TRIG_PORT |= (1 << TRIG_PIN);   // KÈo trigger lÍn HIGH
+	TRIG_PORT |= (1 << TRIG_PIN);   // K√©o trigger l√™n HIGH
 	_delay_us(10);                   // Gi? trong 10us
-	TRIG_PORT &= ~(1 << TRIG_PIN);  // KÈo trigger xu?ng LOW
+	TRIG_PORT &= ~(1 << TRIG_PIN);  // K√©o trigger xu?ng LOW
 }
 
-// Chuy?n ??i s? th‡nh chu?i theo ??nh d?ng UDM
+// Chuy?n ??i s? th√†nh chu?i theo ??nh d?ng UDM
 void format_distance_udm(uint16_t distance_cm, char* buffer) {
-	// Ki?m tra ngo‡i ph?m vi ?o
+	// Ki?m tra ngo√†i ph?m vi ?o
 	if (distance_cm < 2 || distance_cm > 400) {
 		sprintf(buffer, "outrange");
 		return;
 	}
 	
 	if (distance_cm > 999) {
-		// N?u > 999cm, hi?n th? l‡ "999cm"
+		// N?u > 999cm, hi?n th? l√† "999cm"
 		sprintf(buffer, "999cm");
 		return;
 	}
 	
 	if (distance_cm >= 100) {
-		// H‡ng tr?m: ABC.Xcm
+		// H√†ng tr?m: ABC.Xcm
 		uint8_t hundreds = distance_cm / 100;
 		uint8_t remainder = distance_cm % 100;
 		uint8_t tens = remainder / 10;
@@ -214,21 +214,21 @@ void format_distance_udm(uint16_t distance_cm, char* buffer) {
 		sprintf(buffer, "%d%d%d.%dcm", hundreds, tens, ones, 0);
 	}
 	else if (distance_cm >= 10) {
-		// H‡ng ch?c: xBC.Xcm
+		// H√†ng ch?c: xBC.Xcm
 		uint8_t tens = distance_cm / 10;
 		uint8_t ones = distance_cm % 10;
 		sprintf(buffer, "x%d%d.%dcm", tens, ones, 0);
 	}
 	else {
-		// H‡ng ??n v?: xxC.Xcm
+		// H√†ng ??n v?: xxC.Xcm
 		sprintf(buffer, "xx%d.%dcm", distance_cm, 0);
 	}
 }
 
 int main() {
-	// Kh?i t?o c·c module
-	TRIG_DDR |= (1 << TRIG_PIN);    // C?u hÏnh trigger pin l‡ output
-	TRIG_PORT &= ~(1 << TRIG_PIN);  // KÈo trigger xu?ng LOW ban ??u
+	// Kh?i t?o c√°c module
+	TRIG_DDR |= (1 << TRIG_PIN);    // C?u h√¨nh trigger pin l√† output
+	TRIG_PORT &= ~(1 << TRIG_PIN);  // K√©o trigger xu?ng LOW ban ??u
 	
 	lcd_init();
 	interrupt_init();
@@ -238,18 +238,18 @@ int main() {
 	uint16_t distance_cm;
 	float distance_float;
 	
-	// Hi?n th? thÙng b·o kh?i t?o
+	// Hi?n th? th√¥ng b√°o kh?i t?o
 	char ready_msg[] = "HC-SR04 UDM Sensor";
 	char init_msg[] = "Initializing...";
 	
-	lcd_goto(0, 1);  // DÚng 1, c?t 2 (gi?a m‡n hÏnh)
+	lcd_goto(0, 1);  // D√≤ng 1, c?t 2 (gi?a m√†n h√¨nh)
 	lcd_string(ready_msg);
-	lcd_goto(1, 3);  // DÚng 2, c?t 4
+	lcd_goto(1, 3);  // D√≤ng 2, c?t 4
 	lcd_string(init_msg);
 	_delay_ms(2000);
 	
 	while(1) {
-		// Reset tr?ng th·i ?o
+		// Reset tr?ng th√°i ?o
 		measurement_complete = 0;
 		echo_state = 0;
 		
@@ -266,32 +266,32 @@ int main() {
 		lcd_command(0x01);  // Clear display
 		
 		if (measurement_complete) {
-			// Hi?n th? tiÍu ??
-			lcd_goto(0, 6);  // DÚng 1, gi?a m‡n hÏnh
+			// Hi?n th? ti√™u ??
+			lcd_goto(0, 6);  // D√≤ng 1, gi?a m√†n h√¨nh
 			lcd_string("UDM SENSOR");
 			
-			// Hi?n th? gi· tr? timer
-			lcd_goto(1, 0);  // DÚng 2
+			// Hi?n th? gi√° tr? timer
+			lcd_goto(1, 0);  // D√≤ng 2
 			sprintf(timer_str, "Timer: %u counts", timer_value);
 			lcd_string(timer_str);
 			
-			// TÌnh kho?ng c·ch theo cÙng th?c: distance = 17150 * timer_value * 10^-6
+			// T√≠nh kho?ng c√°ch theo c√¥ng th?c: distance = 17150 * timer_value * 10^-6
 			distance_float = 17150.0 * timer_value * 1e-6;
 			distance_cm = (uint16_t)round(distance_float);
 			
-			// Hi?n th? kho?ng c·ch theo ??nh d?ng UDM
-			lcd_goto(2, 0);  // DÚng 3
+			// Hi?n th? kho?ng c√°ch theo ??nh d?ng UDM
+			lcd_goto(2, 0);  // D√≤ng 3
 			lcd_string("Distance: ");
 			format_distance_udm(distance_cm, distance_str);
 			lcd_string(distance_str);
 			
-			// Hi?n th? ??n v? v‡ thÙng tin thÍm
-			lcd_goto(3, 4);  // DÚng 4
+			// Hi?n th? ??n v? v√† th√¥ng tin th√™m
+			lcd_goto(3, 4);  // D√≤ng 4
 			sprintf(distance_str, "= %u cm", distance_cm);
 			lcd_string(distance_str);
 		}
 		else {
-			// Timeout - khÙng nh?n ???c tÌn hi?u
+			// Timeout - kh√¥ng nh?n ???c t√≠n hi?u
 			lcd_goto(0, 6);
 			lcd_string("UDM ERROR");
 			lcd_goto(1, 2);
@@ -302,7 +302,7 @@ int main() {
 			lcd_string("and try again");
 		}
 		
-		_delay_ms(1000);  // ?o m?i 1 gi‚y
+		_delay_ms(1000);  // ?o m?i 1 gi√¢y
 	}
 	
 	return 0;
