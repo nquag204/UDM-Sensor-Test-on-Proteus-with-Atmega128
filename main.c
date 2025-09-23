@@ -7,13 +7,12 @@
 #include <stdio.h>
 #include <math.h>
 
-
 // ??nh ngh?a chân k?t n?i
-#define TRIG_PIN PE0        // Chân Trigger k?t n?i v?i PE0
-#define TRIG_PORT PORTE
-#define TRIG_DDR DDRE
+#define TRIG_PIN PC0        // Chân Trigger k?t n?i v?i PC0
+#define TRIG_PORT PORTC
+#define TRIG_DDR DDRC
 
-#define ECHO_PIN PE4        // Chân Echo k?t n?i v?i PE4 (INT4)
+#define ECHO_PIN PD4        // Chân Echo k?t n?i v?i PD4 (ICP1)
 
 // ??nh ngh?a LCD 20x4
 #define LCD_RS_PIN PB0      // RS pin
@@ -26,9 +25,11 @@
 #define LCD_DATA_DDR DDRC
 
 // Bi?n toàn c?c
-volatile uint16_t timer_value = 0;
+volatile uint16_t timer_start = 0;
+volatile uint16_t timer_end = 0;
+volatile uint16_t pulse_width = 0;
 volatile uint8_t measurement_complete = 0;
-volatile uint8_t echo_state = 0;  // 0: waiting for rising edge, 1: waiting for falling edge
+volatile uint8_t capture_state = 0;  // 0: waiting for rising edge, 1: waiting for falling edge
 
 // Khai báo hàm tr??c
 void lcd_init(void);
@@ -38,48 +39,68 @@ void lcd_string(const char* str);
 void lcd_goto(uint8_t row, uint8_t col);
 void lcd_enable_pulse(void);
 void timer1_init(void);
-void interrupt_init(void);
+void input_capture_init(void);
 void send_trigger(void);
 void format_distance_udm(uint16_t distance_cm, char* buffer);
 
-// Kh?i t?o Timer1
+// Kh?i t?o Timer1 cho Input Capture
 void timer1_init() {
-	// Timer1 normal mode, prescaler 1 
+	// Timer1 normal mode, prescaler 1
 	TCCR1A = 0;
 	TCCR1B = (1 << CS10);  // Prescaler 1
 	TCNT1 = 0;
 }
 
-// Kh?i t?o External Interrupt INT4
-void interrupt_init() {
-	// C?u hình PE4 là input
-	DDRE &= ~(1 << PE4);
+// Kh?i t?o Input Capture
+void input_capture_init() {
+	// C?u hình PD4 (ICP1) là input
+	DDRD &= ~(1 << PD4);
 	
-	// C?u hình INT4 ?? kích ho?t trên c? c?nh lên và c?nh xu?ng
-	EICRB |= (1 << ISC40);  // Any logical change on INT4
-	EICRB &= ~(1 << ISC41);
+	// Kh?i t?o Timer1
+	timer1_init();
 	
-	// Cho phép INT4
-	EIMSK |= (1 << INT4);
+	// C?u hình Input Capture ?? kích ho?t trên c?nh lên tr??c
+	TCCR1B |= (1 << ICES1);  // Input Capture Edge Select - rising edge
+	
+	// Xóa c? Input Capture
+	TIFR |= (1 << ICF1);
+	
+	// Cho phép Input Capture Interrupt
+	TIMSK |= (1 << TICIE1);
 	
 	// Cho phép global interrupt
 	sei();
 }
 
-// Interrupt Service Routine cho INT4
-ISR(INT4_vect) {
-	if (echo_state == 0) {
-		// C?nh lên - b?t ??u ??m
-		TCNT1 = 0;
-		timer1_init();
-		echo_state = 1;
+// Interrupt Service Routine cho Input Capture
+ISR(TIMER1_CAPT_vect) {
+	if (capture_state == 0) {
+		// C?nh lên - l?u th?i ?i?m b?t ??u
+		timer_start = ICR1;
+		// Chuy?n sang ch? ?? kích ho?t c?nh xu?ng
+		TCCR1B &= ~(1 << ICES1);  // Falling edge
+		capture_state = 1;
 		} else {
-		// C?nh xu?ng - d?ng ??m
-		timer_value = TCNT1;
-		TCCR1B = 0;  // D?ng timer
+		// C?nh xu?ng - l?u th?i ?i?m k?t thúc
+		timer_end = ICR1;
+		
+		// Tính ?? r?ng xung
+		if (timer_end > timer_start) {
+			pulse_width = timer_end - timer_start;
+			} else {
+			// X? lý tr??ng h?p timer overflow
+			pulse_width = (0xFFFF - timer_start) + timer_end + 1;
+		}
+		
 		measurement_complete = 1;
-		echo_state = 0;
+		capture_state = 0;
+		
+		// Chuy?n l?i v? ch? ?? kích ho?t c?nh lên cho l?n ?o ti?p theo
+		TCCR1B |= (1 << ICES1);  // Rising edge
 	}
+	
+	// Xóa c? Input Capture
+	TIFR |= (1 << ICF1);
 }
 
 // Kh?i t?o LCD 20x4
@@ -231,7 +252,7 @@ int main() {
 	TRIG_PORT &= ~(1 << TRIG_PIN);  // Kéo trigger xu?ng LOW ban ??u
 	
 	lcd_init();
-	interrupt_init();
+	input_capture_init();
 	
 	char distance_str[21];  // T?ng buffer size cho LCD 20x4
 	char timer_str[21];
@@ -251,7 +272,14 @@ int main() {
 	while(1) {
 		// Reset tr?ng thái ?o
 		measurement_complete = 0;
-		echo_state = 0;
+		capture_state = 0;
+		pulse_width = 0;
+		
+		// ??m b?o Input Capture ???c c?u hình cho c?nh lên
+		TCCR1B |= (1 << ICES1);  // Rising edge
+		
+		// Reset Timer1
+		TCNT1 = 0;
 		
 		// G?i xung trigger
 		send_trigger();
@@ -270,13 +298,13 @@ int main() {
 			lcd_goto(0, 6);  // Dòng 1, gi?a màn hình
 			lcd_string("UDM SENSOR");
 			
-			// Hi?n th? giá tr? timer
+			// Hi?n th? giá tr? pulse width
 			lcd_goto(1, 0);  // Dòng 2
-			sprintf(timer_str, "Timer: %u counts", timer_value);
+			sprintf(timer_str, "Pulse: %u counts", pulse_width);
 			lcd_string(timer_str);
 			
-			// Tính kho?ng cách theo công th?c: distance = 17150 * timer_value * 10^-6
-			distance_float = 17150.0 * timer_value * 1e-6;
+			// Tính kho?ng cách theo công th?c: distance = 17150 * pulse_width * 10^-6
+			distance_float = 17150.0 * pulse_width * 1e-6;
 			distance_cm = (uint16_t)round(distance_float);
 			
 			// Hi?n th? kho?ng cách theo ??nh d?ng UDM
